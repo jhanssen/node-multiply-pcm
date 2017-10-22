@@ -3,13 +3,13 @@
   {
     "conditions": [
       [ 'OS!="win"', {
-	"cflags+": [ "-std=c++14" ],
-	"cflags_c+": [ "-std=c++14" ],
-	"cflags_cc+": [ "-std=c++14" ],
+	"cflags+": [ "-std=c++17" ],
+	"cflags_c+": [ "-std=c++17" ],
+	"cflags_cc+": [ "-std=c++17" ],
       }],
       [ 'OS=="mac"', {
 	"xcode_settings": {
-	  "OTHER_CPLUSPLUSFLAGS" : [ "-std=c++14" ],
+	  "OTHER_CPLUSPLUSFLAGS" : [ "-std=c++17" ],
         },
       }],
     ],

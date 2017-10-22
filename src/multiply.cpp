@@ -2,6 +2,7 @@
 #include <uv.h>
 #include <node.h>
 #include <node_buffer.h>
+#include <algorithm>
 #include <assert.h>
 
 struct Data
@@ -60,7 +61,9 @@ struct Performer
         const float multiply = data->gains.front();
         Type* type = static_cast<Type*>(data->buffer.data);
         for (int i = 0; i < iterations; ++i, ++type) {
-            *type *= multiply;
+            *type = std::clamp<int64_t>(static_cast<int64_t>(static_cast<int64_t>(*type) * multiply),
+                                        std::numeric_limits<Type>::min(),
+                                        std::numeric_limits<Type>::max());
         }
     }
 };
@@ -89,7 +92,9 @@ struct Performer<24, true, Type>
             data8[3] = flag;
 
             // multiply and mask
-            data32 *= multiply;
+            data32 = std::clamp<int64_t>(static_cast<int64_t>(static_cast<int64_t>(data32) * multiply),
+                                         std::numeric_limits<Type>::min(),
+                                         std::numeric_limits<Type>::max());
             data32 &= 0x7fffff;
 
             // pack our int32_t back into the 3 bufffer bytes
