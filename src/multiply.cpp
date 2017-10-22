@@ -126,7 +126,9 @@ struct Performer<24, false, Type>
             data8[3] = 0;
 
             // multiply and mask
-            data32 *= multiply;
+            data32 = std::clamp<int64_t>(static_cast<int64_t>(data32) * multiply,
+                                         std::numeric_limits<Type>::min(),
+                                         std::numeric_limits<Type>::max());
             data32 &= 0xffffff;
 
             // pack our int32_t back into the 3 bufffer bytes
