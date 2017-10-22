@@ -53,7 +53,7 @@ Data::~Data()
 {
 }
 
-template<uint8_t Increment, bool Signed, typename Type>
+template<uint8_t Increment, typename Type, typename = std::true_type>
 struct Performer
 {
     void perform(Data* data, int iterations)
@@ -70,7 +70,7 @@ struct Performer
 
 // specialization for signed 24
 template<typename Type>
-struct Performer<24, true, Type>
+struct Performer<24, Type, typename std::is_signed<Type>::type>
 {
     void perform(Data* data, int iterations)
     {
@@ -107,7 +107,7 @@ struct Performer<24, true, Type>
 
 // specialization for unsigned 24
 template<typename Type>
-struct Performer<24, false, Type>
+struct Performer<24, Type, typename std::is_unsigned<Type>::type>
 {
     void perform(Data* data, int iterations)
     {
@@ -151,37 +151,37 @@ void Data::perform()
     switch (format.bitsPerSample) {
     case 8: {
         if (isSigned) {
-            Performer<8, true, int8_t> performer;
+            Performer<8, int8_t> performer;
             performer.perform(this, iterations);
         } else {
-            Performer<8, false, uint8_t> performer;
+            Performer<8, uint8_t> performer;
             performer.perform(this, iterations);
         }
         break; }
     case 16: {
         if (isSigned) {
-            Performer<16, true, int16_t> performer;
+            Performer<16, int16_t> performer;
             performer.perform(this, iterations);
         } else {
-            Performer<16, false, uint16_t> performer;
+            Performer<16, uint16_t> performer;
             performer.perform(this, iterations);
         }
         break; }
     case 24: {
         if (isSigned) {
-            Performer<24, true, int32_t> performer;
+            Performer<24, int32_t> performer;
             performer.perform(this, iterations);
         } else {
-            Performer<24, false, uint32_t> performer;
+            Performer<24, uint32_t> performer;
             performer.perform(this, iterations);
         }
         break; }
     case 32: {
         if (isSigned) {
-            Performer<32, true, int32_t> performer;
+            Performer<32, int32_t> performer;
             performer.perform(this, iterations);
         } else {
-            Performer<32, false, uint32_t> performer;
+            Performer<32, uint32_t> performer;
             performer.perform(this, iterations);
         }
         break; }
