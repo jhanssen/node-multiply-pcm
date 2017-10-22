@@ -60,7 +60,7 @@ struct Performer
         const float multiply = data->gains.front();
         Type* type = static_cast<Type*>(data->buffer.data);
         for (int i = 0; i < iterations; ++i, ++type) {
-            *type = *type * multiply;
+            *type *= multiply;
         }
     }
 };
@@ -335,6 +335,7 @@ NAN_METHOD(Feed) {
 
     if (data->gains.front() == 1.) {
         data->complete();
+        return;
     }
 
     data->buffer.data = dt;

@@ -1,4 +1,4 @@
-/*global require,module*/
+/*global require,module,process*/
 
 "use strict";
 
@@ -10,24 +10,26 @@ class Multiply extends Transform {
     constructor(options) {
         super(options);
 
-        if (typeof options.multiply !== "number") {
-            throw "Need a multiply number";
+        if (typeof options.gain !== "number") {
+            throw "Need a gain number";
         }
 
         this._lastFormat = {};
         this._pending = [];
 
         this._multiply = bindings.New(() => {
-            this.push(this._pending.shift());
+            this.push(this._pending[0].chunk);
+            this._pending[0].done();
 
-            this._transformCb();
-            this._transformCb = undefined;
+            this._pending.splice(0, 1);
 
             if (!this._pending.length) {
                 return;
             }
-            bindings.Feed(this._multiply, this._pending[0]);
-        }, options.multiply);
+            process.nextTick(() => {
+                bindings.Feed(this._multiply, this._pending[0].chunk);
+            });
+        }, options.gain);
 
         this._format(options);
 
@@ -36,10 +38,13 @@ class Multiply extends Transform {
         this.on("unpipe", this._unpipe);
     }
 
+    setGain(gain) {
+        bindings.SetGain(this._multiply, gain);
+    }
+
     _transform(chunk, encoding, done) {
         // console.log("want to transform", chunk.length, typeof done);
-        this._transformCb = done;
-        this._pending.push(chunk);
+        this._pending.push({ chunk: chunk, done: done });
         if (this._pending.length === 1) {
             bindings.Feed(this._multiply, chunk);
         }
@@ -71,6 +76,9 @@ class Multiply extends Transform {
         if (typeof opts.signed === "boolean") {
             set = true;
             this._lastFormat.signed = opts.signed;
+        } else {
+            // signed defaults to true for 16, 24 and 32
+            this._lastFormat.signed = this._lastFormat.bitDepth !== 8;
         }
         if (set) {
             bindings.SetFormat(this._multiply,
