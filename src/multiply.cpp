@@ -2,6 +2,7 @@
 #include <uv.h>
 #include <node.h>
 #include <node_buffer.h>
+#include <assert.h>
 
 struct Data
 {
@@ -15,7 +16,6 @@ struct Data
     Nan::Persistent<v8::Object> weak;
     Nan::Persistent<v8::Value> persistentData;
     v8::Isolate* isolate;
-    float multiply;
     bool working, collected;
     uv_work_t work;
 
@@ -27,6 +27,7 @@ struct Data
         bool isSigned;
     };
     std::vector<Format> formats;
+    std::vector<float> gains;
 
     struct
     {
@@ -56,7 +57,7 @@ struct Performer
 {
     void perform(Data* data, int iterations)
     {
-        const float multiply = data->multiply;
+        const float multiply = data->gains.front();
         Type* type = static_cast<Type*>(data->buffer.data);
         for (int i = 0; i < iterations; ++i, ++type) {
             *type = *type * multiply;
@@ -74,7 +75,7 @@ struct Performer<24, true, Type>
             uint8_t data8[4];
             int32_t data32;
         };
-        const float multiply = data->multiply;
+        const float multiply = data->gains.front();
         // this code will only work if both the buffer and our cpu is little endian
         uint8_t* type = static_cast<uint8_t*>(data->buffer.data);
         uint8_t flag;
@@ -109,7 +110,7 @@ struct Performer<24, false, Type>
             uint8_t data8[4];
             uint32_t data32;
         };
-        const float multiply = data->multiply;
+        const float multiply = data->gains.front();
         // this code will only work if both the buffer and our cpu is little endian
         uint8_t* type = static_cast<uint8_t*>(data->buffer.data);
         for (int i = 0; i < iterations; ++i, type += 3) {
@@ -198,6 +199,11 @@ void Data::complete()
         formats.clear();
         formats.push_back(f);
     }
+    if (gains.size() > 1) {
+        const float g = gains.back();
+        gains.clear();
+        gains.push_back(g);
+    }
     auto ctx = Nan::GetCurrentContext();
     v8::Local<v8::Function> cb = v8::Local<v8::Function>::New(isolate, callback);
     if (cb->Call(ctx, cb, 0, nullptr).IsEmpty()) {
@@ -230,7 +236,7 @@ NAN_METHOD(New) {
     Data* data = new Data;
     data->isolate = info.GetIsolate();
     data->callback.Reset(v8::Local<v8::Function>::Cast(info[0]));
-    data->multiply = v8::Local<v8::Number>::Cast(info[1])->Value();
+    data->gains.push_back(v8::Local<v8::Number>::Cast(info[1])->Value());
 
     data->work.data = data;
 
@@ -272,6 +278,29 @@ NAN_METHOD(SetFormat) {
     data->formats.push_back(Data::Format{ info[1]->Int32Value(), info[2]->Int32Value(), info[3]->Int32Value(), info[4]->BooleanValue() });
 }
 
+NAN_METHOD(SetGain) {
+    if (!info[0]->IsObject()) {
+        Nan::ThrowError("First argument must be an object");
+        return;
+    }
+    if (!info[1]->IsNumber()) {
+        Nan::ThrowError("Second argument must be a number");
+        return;
+    }
+
+    auto iso = info.GetIsolate();
+    auto ctx = Nan::GetCurrentContext();
+    v8::Local<v8::Object> obj = v8::Local<v8::Object>::Cast(info[0]);
+    v8::Local<v8::Private> extName = v8::Local<v8::Private>::New(iso, Data::extName);
+    if (!obj->HasPrivate(ctx, extName).ToChecked()) {
+        Nan::ThrowError("Argument must have an external");
+        return;
+    }
+    v8::Local<v8::Value> extValue = obj->GetPrivate(ctx, extName).ToLocalChecked();
+    Data* data = static_cast<Data*>(v8::Local<v8::External>::Cast(extValue)->Value());
+    data->gains.push_back(info[1]->NumberValue());
+}
+
 NAN_METHOD(Feed) {
     if (!info[0]->IsObject()) {
         Nan::ThrowError("Argument must be an object");
@@ -296,6 +325,7 @@ NAN_METHOD(Feed) {
         Nan::ThrowError("No format set");
         return;
     }
+    assert(!data->gains.empty());
 
     char* dt = node::Buffer::Data(info[1]);
     const size_t size = node::Buffer::Length(info[1]);
@@ -303,7 +333,7 @@ NAN_METHOD(Feed) {
     if (!size)
         return;
 
-    if (data->multiply == 1.) {
+    if (data->gains.front() == 1.) {
         data->complete();
     }
 
@@ -325,6 +355,7 @@ NAN_METHOD(Feed) {
 NAN_MODULE_INIT(Initialize) {
     NAN_EXPORT(target, New);
     NAN_EXPORT(target, SetFormat);
+    NAN_EXPORT(target, SetGain);
     NAN_EXPORT(target, Feed);
 }
 
