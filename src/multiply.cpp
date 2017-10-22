@@ -189,6 +189,8 @@ void Data::complete()
 
     Nan::HandleScope scope;
 
+    persistentData.Reset();
+
     working = false;
     if (formats.size() > 1) {
         // we want the last format to be our only format
@@ -301,9 +303,14 @@ NAN_METHOD(Feed) {
     if (!size)
         return;
 
+    if (data->multiply == 1.) {
+        data->complete();
+    }
+
     data->buffer.data = dt;
     data->buffer.size = size;
     data->persistentData.Reset(info[1]);
+
     data->working = true;
     uv_queue_work(uv_default_loop(),
                   &data->work,
